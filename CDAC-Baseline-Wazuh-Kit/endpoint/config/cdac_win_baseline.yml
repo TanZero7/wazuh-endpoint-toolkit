@@ -1,0 +1,358 @@
+policy:
+  id: "cdac_win_baseline"
+  file: "cdac_win_baseline.yml"
+  name: "CDAC Security Baseline for Desktops/Laptops"
+  description: "Automated subset of the CDAC 'Security Baseline for Desktops/Laptops' (30 controls). Controls 5, 12, 17, 20, 25, 26, 28, 29, 30 are procedural / require an approved-list or domain context and are handled manually - see the WAZUH TOOLKIT baseline register."
+  references:
+    - "CDAC - Security Baseline for Desktops/Laptops"
+
+requirements:
+  title: "Windows workstation / laptop"
+  description: "Runs on Windows endpoints only."
+  condition: any
+  rules:
+    - 'r:HKEY_LOCAL_MACHINE\Software\Microsoft\Windows NT\CurrentVersion -> ProductName'
+
+checks:
+  # ------------------------------------------------------------------ 1
+  - id: 400001
+    title: "CDAC 1 - Password policy: minimum length >= 14 characters"
+    description: "Local password policy must enforce a minimum length of at least 14."
+    rationale: "Short passwords are trivially brute-forced."
+    remediation: "secpol.msc > Account Policies > Password Policy > Minimum password length = 14 (or GPO)."
+    compliance:
+      - cdac: ["1"]
+    condition: all
+    rules:
+      - 'c:net accounts -> n:Minimum password length:\s+(\d+) compare >= 14'
+  # ------------------------------------------------------------------ 1b
+  - id: 400002
+    title: "CDAC 1 - Password history >= 24 remembered"
+    description: "Enforce password history of at least 24."
+    rationale: "Prevents password reuse."
+    remediation: "Password Policy > Enforce password history = 24."
+    compliance:
+      - cdac: ["1"]
+    condition: all
+    rules:
+      - 'c:net accounts -> n:Length of password history maintained:\s+(\d+) compare >= 24'
+  # ------------------------------------------------------------------ 1c
+  - id: 400003
+    title: "CDAC 1 - Password complexity enabled"
+    description: "Passwords must meet Windows complexity requirements."
+    rationale: "Forces mixed character classes."
+    remediation: "Password Policy > Password must meet complexity requirements = Enabled."
+    compliance:
+      - cdac: ["1"]
+    condition: all
+    rules:
+      - 'c:powershell -NoProfile -Command "New-Item -ItemType Directory -Force -Path C:\ProgramData\wazuh-toolkit | Out-Null; $f=''C:\ProgramData\wazuh-toolkit\secpol-cache.inf''; secedit /export /cfg $f /areas SECURITYPOLICY | Out-Null; (Select-String -Path $f -Pattern ''PasswordComplexity'').Line" -> r:PasswordComplexity\s*=\s*1'
+  # ------------------------------------------------------------------ 2
+  - id: 400004
+    title: "CDAC 2 - Maximum password age <= 90 days"
+    description: "Passwords must expire within 90 days."
+    rationale: "Limits exposure window of a compromised credential."
+    remediation: "Password Policy > Maximum password age = 90 (and not 0)."
+    compliance:
+      - cdac: ["2"]
+    condition: all
+    rules:
+      - 'c:net accounts -> n:Maximum password age \(days\):\s+(\d+) compare <= 90'
+      - 'c:net accounts -> n:Maximum password age \(days\):\s+(\d+) compare != 0'
+  # ------------------------------------------------------------------ 3
+  - id: 400005
+    title: "CDAC 3 - Account lockout threshold <= 5 and enabled"
+    description: "Lock account after at most 5 bad attempts."
+    rationale: "Slows online password guessing."
+    remediation: "Account Lockout Policy > Account lockout threshold = 5."
+    compliance:
+      - cdac: ["3"]
+    condition: all
+    rules:
+      - 'c:net accounts -> n:Lockout threshold:\s+(\d+) compare <= 5'
+      - 'c:net accounts -> n:Lockout threshold:\s+(\d+) compare != 0'
+  # ------------------------------------------------------------------ 3b
+  - id: 400006
+    title: "CDAC 3 - Account lockout duration >= 30 minutes"
+    description: "Locked accounts stay locked for at least 30 minutes."
+    rationale: "Extends attacker cost per guessing round."
+    remediation: "Account Lockout Policy > Account lockout duration = 30."
+    compliance:
+      - cdac: ["3"]
+    condition: all
+    rules:
+      - 'c:net accounts -> n:Lockout duration \(minutes\):\s+(\d+) compare >= 30'
+  # ------------------------------------------------------------------ 4
+  - id: 400007
+    title: "CDAC 4 - Built-in Guest account is disabled"
+    description: "The local Guest account must not be usable."
+    rationale: "Guest is an unauthenticated foothold and must never hold access."
+    remediation: "net user guest /active:no"
+    compliance:
+      - cdac: ["4"]
+    condition: all
+    rules:
+      - 'c:net user guest -> r:Account active\s+No'
+  # ------------------------------------------------------------------ 4b
+  - id: 400008
+    title: "CDAC 4 - No broad principals in the local Administrators group"
+    description: "The local Administrators group must not contain broad principals (Everyone, Authenticated Users, Domain Users, Users). Membership should be limited to named IT administrators / an approved admins group - verify the full list against the WAZUH TOOLKIT approved register."
+    rationale: "A broad principal in Administrators makes every user a local admin."
+    remediation: "net localgroup administrators \"<principal>\" /delete for any unauthorized entry."
+    compliance:
+      - cdac: ["4"]
+    condition: none
+    rules:
+      - 'c:net localgroup administrators -> r:Everyone|Authenticated Users|Domain Users|\\Users$'
+  # ------------------------------------------------------------------ 6
+  - id: 400009
+    title: "CDAC 6 - BitLocker protection ON for the system drive"
+    description: "The OS drive must be BitLocker-encrypted with protection enabled."
+    rationale: "Protects data at rest if the device is lost or stolen."
+    remediation: "manage-bde -on C: ; ensure recovery key escrowed to AD/Azure AD."
+    compliance:
+      - cdac: ["6"]
+    condition: all
+    rules:
+      - 'c:powershell -NoProfile -Command "(Get-BitLockerVolume -MountPoint C:).ProtectionStatus" -> r:^On'
+  # ------------------------------------------------------------------ 7
+  - id: 400010
+    title: "CDAC 7 - Secure Boot enabled"
+    description: "UEFI Secure Boot must be enabled."
+    rationale: "Blocks unsigned bootloaders / bootkits."
+    remediation: "Enable Secure Boot in UEFI firmware settings."
+    compliance:
+      - cdac: ["7"]
+    condition: all
+    rules:
+      - 'r:HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\SecureBoot\State -> UEFISecureBootEnabled -> 1'
+  # ------------------------------------------------------------------ 8
+  - id: 400011
+    title: "CDAC 8 - Windows Firewall enabled on all profiles"
+    description: "Domain, Private and Public firewall profiles must be ON."
+    rationale: "Host firewall limits lateral movement and inbound exposure."
+    remediation: "netsh advfirewall set allprofiles state on"
+    compliance:
+      - cdac: ["8"]
+    condition: all
+    rules:
+      - 'r:HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\SharedAccess\Parameters\FirewallPolicy\DomainProfile -> EnableFirewall -> 1'
+      - 'r:HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\SharedAccess\Parameters\FirewallPolicy\StandardProfile -> EnableFirewall -> 1'
+      - 'r:HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\SharedAccess\Parameters\FirewallPolicy\PublicProfile -> EnableFirewall -> 1'
+  # ------------------------------------------------------------------ 8b
+  - id: 400012
+    title: "CDAC 8 - Microsoft Defender real-time protection enabled"
+    description: "Defender real-time protection / antimalware must be active (or an approved EPS/EDR present)."
+    rationale: "Real-time protection is the baseline malware control."
+    remediation: "Enable Microsoft Defender real-time protection; do not set DisableAntiSpyware."
+    compliance:
+      - cdac: ["8"]
+    condition: all
+    rules:
+      - 'c:powershell -NoProfile -Command "(Get-MpComputerStatus).RealTimeProtectionEnabled" -> r:^True'
+  # ------------------------------------------------------------------ 9
+  - id: 400013
+    title: "CDAC 9 - System Protection / restore not disabled"
+    description: "System Restore must not be disabled by policy."
+    rationale: "Restore points aid recovery from bad updates or ransomware."
+    remediation: "Do not set DisableSR=1; enable System Protection on C:."
+    compliance:
+      - cdac: ["9"]
+    condition: all
+    rules:
+      - 'c:powershell -NoProfile -Command "$k=''HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\SystemRestore''; if (Test-Path $k) { (Get-ItemProperty $k).DisableSR } else { 0 }" -> n:^(\d+)$ compare != 1'
+  # ------------------------------------------------------------------ 10
+  - id: 400014
+    title: "CDAC 10 - Windows is activated (licensed)"
+    description: "Windows must be activated with enterprise licensing."
+    rationale: "Unactivated Windows loses updates and features."
+    remediation: "Activate against the enterprise KMS / MAK."
+    compliance:
+      - cdac: ["10"]
+    condition: all
+    rules:
+      - 'c:powershell -NoProfile -Command "(Get-CimInstance SoftwareLicensingProduct -Filter \"Name like ''Windows%'' AND PartialProductKey is not null\" | Select-Object -First 1 -Expand LicenseStatus)" -> r:^1'
+  # ------------------------------------------------------------------ 11a
+  - id: 400015
+    title: "CDAC 11 - Telnet Client feature disabled"
+    description: "The Telnet Client optional feature must not be installed."
+    rationale: "Telnet is cleartext and an unnecessary attack tool."
+    remediation: "Disable-WindowsOptionalFeature -Online -FeatureName TelnetClient"
+    compliance:
+      - cdac: ["11"]
+    condition: all
+    rules:
+      - 'c:powershell -NoProfile -Command "(Get-WindowsOptionalFeature -Online -FeatureName TelnetClient).State" -> r:Disabled|DisabledWithPayloadRemoved'
+  # ------------------------------------------------------------------ 11b
+  - id: 400016
+    title: "CDAC 11 - TFTP Client feature disabled"
+    description: "The TFTP Client optional feature must not be installed."
+    rationale: "TFTP is a common malware download channel."
+    remediation: "Disable-WindowsOptionalFeature -Online -FeatureName TFTP"
+    compliance:
+      - cdac: ["11"]
+    condition: all
+    rules:
+      - 'c:powershell -NoProfile -Command "(Get-WindowsOptionalFeature -Online -FeatureName TFTP).State" -> r:Disabled|DisabledWithPayloadRemoved'
+  # ------------------------------------------------------------------ 13a
+  - id: 400017
+    title: "CDAC 13 - Remote Desktop (RDP) disabled"
+    description: "Inbound RDP must be denied unless explicitly approved."
+    rationale: "RDP is a top ransomware entry vector."
+    remediation: "Set fDenyTSConnections=1 (System Properties > Remote > Don't allow)."
+    compliance:
+      - cdac: ["13"]
+    condition: all
+    rules:
+      - 'r:HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Terminal Server -> fDenyTSConnections -> 1'
+  # ------------------------------------------------------------------ 13b
+  - id: 400018
+    title: "CDAC 13 - WinRM / PowerShell Remoting service disabled"
+    description: "The WinRM service must be stopped and set to not auto-start unless approved."
+    rationale: "WinRM enables remote code execution and lateral movement."
+    remediation: "Disable-PSRemoting; Stop-Service WinRM; Set-Service WinRM -StartupType Disabled."
+    compliance:
+      - cdac: ["13"]
+    condition: all
+    rules:
+      - 'r:HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\WinRM -> Start -> 4'
+  # ------------------------------------------------------------------ 14
+  - id: 400019
+    title: "CDAC 14 - NTP synced to approved servers (samay1/samay2.nic.in)"
+    description: "The W32Time NtpServer must reference the approved NIC time sources."
+    rationale: "Accurate, trusted time is required for log correlation and Kerberos."
+    remediation: 'w32tm /config /manualpeerlist:"samay1.nic.in,0x8 samay2.nic.in,0x8" /syncfromflags:manual /update'
+    compliance:
+      - cdac: ["14"]
+    condition: all
+    rules:
+      - 'r:HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\W32Time\Parameters -> NtpServer -> r:samay1\.nic\.in'
+  # ------------------------------------------------------------------ 15a
+  - id: 400020
+    title: "CDAC 15 - SMBv1 server disabled"
+    description: "The SMBv1 server protocol must be disabled."
+    rationale: "SMBv1 carries EternalBlue-class and other critical flaws."
+    remediation: "Set LanmanServer\\Parameters\\SMB1=0 ; remove SMB1Protocol feature."
+    compliance:
+      - cdac: ["15"]
+    condition: all
+    rules:
+      - 'c:powershell -NoProfile -Command "(Get-SmbServerConfiguration).EnableSMB1Protocol" -> r:^False'
+  # ------------------------------------------------------------------ 15b
+  - id: 400021
+    title: "CDAC 15 - SMB signing required (server and workstation)"
+    description: "SMB signing must be required inbound and outbound."
+    rationale: "Prevents SMB relay and tampering."
+    remediation: "Set RequireSecuritySignature=1 on LanmanServer and LanmanWorkstation."
+    compliance:
+      - cdac: ["15"]
+    condition: all
+    rules:
+      - 'c:powershell -NoProfile -Command "(Get-SmbServerConfiguration).RequireSecuritySignature" -> r:^True'
+      - 'c:powershell -NoProfile -Command "(Get-SmbClientConfiguration).RequireSecuritySignature" -> r:^True'
+  # ------------------------------------------------------------------ 16
+  - id: 400022
+    title: "CDAC 16 - OpenSSH server hardening (if installed): no CBC / no SHA-1 MACs"
+    description: "If an OpenSSH server is present, sshd_config must not permit CBC ciphers or SHA-1 / MD5 MACs."
+    rationale: "Weak ciphers and MACs undermine SSH confidentiality/integrity."
+    remediation: "Set explicit strong Ciphers and MACs in C:\\ProgramData\\ssh\\sshd_config; restart sshd."
+    compliance:
+      - cdac: ["16"]
+    condition: all
+    rules:
+      - 'not f:C:\ProgramData\ssh\sshd_config -> r:^\s*Ciphers\s+.*-cbc'
+      - 'not f:C:\ProgramData\ssh\sshd_config -> r:^\s*MACs\s+.*(hmac-sha1|hmac-md5)(,|\s|$)'
+  # ------------------------------------------------------------------ 18
+  - id: 400023
+    title: "CDAC 18 - SNMP service not running (or SNMPv3 only)"
+    description: "The legacy SNMP service must be disabled unless explicitly required."
+    rationale: "SNMPv1/v2c community strings are cleartext credentials."
+    remediation: "Stop and disable the SNMP service; if required, use SNMPv3 only."
+    compliance:
+      - cdac: ["18"]
+    condition: any
+    rules:
+      - 'not r:HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\SNMP'
+      - 'r:HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\SNMP -> Start -> 4'
+  # ------------------------------------------------------------------ 19
+  - id: 400024
+    title: "CDAC 19 - IP forwarding (routing) disabled"
+    description: "The host must not route IP traffic between interfaces."
+    rationale: "A routing endpoint can bridge network segments and bypass controls."
+    remediation: "Set Tcpip\\Parameters\\IPEnableRouter = 0 and disable RemoteAccess/Routing role."
+    compliance:
+      - cdac: ["19"]
+    condition: all
+    rules:
+      - 'r:HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters -> IPEnableRouter -> 0'
+  # ------------------------------------------------------------------ 21
+  - id: 400025
+    title: "CDAC 21 - Advanced audit policy: key categories enabled"
+    description: "Auditing must be on for Logon, Account Management, Privilege Use, Process Creation and System events."
+    rationale: "These subcategories are the backbone of endpoint investigation."
+    remediation: "Configure Advanced Audit Policy (auditpol / GPO) for the listed subcategories, Success and Failure."
+    compliance:
+      - cdac: ["21"]
+    condition: all
+    rules:
+      - 'c:auditpol /get /subcategory:"Logon" -> r:Success and Failure|Success und Fehler'
+      - 'c:auditpol /get /subcategory:"User Account Management" -> r:Success'
+      - 'c:auditpol /get /subcategory:"Sensitive Privilege Use" -> r:Success'
+      - 'c:auditpol /get /subcategory:"Process Creation" -> r:Success'
+      - 'c:auditpol /get /subcategory:"Security State Change" -> r:Success'
+  # ------------------------------------------------------------------ 22
+  - id: 400026
+    title: "CDAC 22 - Failed logon auditing (Event ID 4625) enabled"
+    description: "Logon failures must be recorded."
+    rationale: "4625 is the primary signal for password-guessing and lockouts."
+    remediation: 'auditpol /set /subcategory:"Logon" /failure:enable'
+    compliance:
+      - cdac: ["22"]
+    condition: all
+    rules:
+      - 'c:auditpol /get /subcategory:"Logon" -> r:Failure'
+  # ------------------------------------------------------------------ 23
+  - id: 400027
+    title: "CDAC 23 - Approved log-forwarding agent installed and running"
+    description: "The Wazuh agent (SIEM log forwarder) must be present and running."
+    rationale: "Endpoint telemetry must reach the central SIEM."
+    remediation: "Install and start the Wazuh agent; confirm it is Active on the manager."
+    compliance:
+      - cdac: ["23"]
+    condition: all
+    rules:
+      - 'r:HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\WazuhSvc -> Start -> 2'
+      - 'c:sc query WazuhSvc -> r:RUNNING'
+  # ------------------------------------------------------------------ 24
+  - id: 400028
+    title: "CDAC 24 - Security event log sized for retention (>= 196 MB)"
+    description: "Local Security log must be large enough to avoid premature wrap before forwarding; central 90-day retention is enforced on the SIEM."
+    rationale: "A tiny Security log loses events between agent polls."
+    remediation: "Set EventLog\\Security MaxSize >= 201326592 (bytes) via GPO or wevtutil."
+    compliance:
+      - cdac: ["24"]
+    condition: all
+    rules:
+      - 'c:powershell -NoProfile -Command "(wevtutil gl Security) -match ''maxSize'' -replace ''[^0-9]'',''''" -> n:^(\d+)$ compare >= 201326592'
+  # ------------------------------------------------------------------ 25
+  - id: 400029
+    title: "CDAC 25 - Software inventory collection enabled (Wazuh syscollector)"
+    description: "The agent must be collecting installed-software inventory to support the approved-software process."
+    rationale: "You cannot remove unsupported software you are not inventorying."
+    remediation: "Enable <wodle name='syscollector'> with <packages>yes</packages>."
+    compliance:
+      - cdac: ["25"]
+    condition: all
+    rules:
+      - 'f:C:\Program Files (x86)\ossec-agent\ossec.conf -> r:syscollector'
+  # ------------------------------------------------------------------ 27
+  - id: 400030
+    title: "CDAC 27 - Endpoint joined to Active Directory domain"
+    description: "The endpoint must be domain-joined to receive security GPOs."
+    rationale: "Workgroup machines do not receive centrally managed policy."
+    remediation: "Join the machine to the WAZUH TOOLKIT Active Directory domain."
+    compliance:
+      - cdac: ["27"]
+    condition: all
+    rules:
+      - 'c:powershell -NoProfile -Command "(Get-CimInstance Win32_ComputerSystem).PartOfDomain" -> r:True'
