@@ -1,0 +1,8 @@
+# Binaries are built locally, never committed
+*.exe
+*.msi
+
+# Generated at runtime by the Suricata scripts
+suricata/prereqs/
+suricata/logs/
+suricata/state/

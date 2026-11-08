@@ -1,0 +1,17 @@
+This folder is where install-active-response.ps1 looks for remove-threat.exe
+by default (virustotal-active-response\bin\remove-threat.exe).
+
+remove-threat.exe is NOT committed to this repository (compiled binaries
+don't belong in git). Build it once, then reuse the same binary everywhere:
+
+  1. Get remove-threat.py from Wazuh's official "VirusTotal + Active
+     Response" documentation (the Windows example), or write a script that
+     follows Wazuh's Active Response contract: read the alert JSON from
+     stdin, take the "add"/"delete" command, resolve the syscheck path
+     Wazuh handed it, and delete that file -- logging what it did.
+  2. Build it:  pyinstaller -F remove-threat.py
+  3. Copy the resulting dist\remove-threat.exe into this folder as
+     remove-threat.exe.
+
+After that, install-active-response.ps1 deploys the SAME verified binary to
+every endpoint you run it against -- no rebuilding per machine.

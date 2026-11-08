@@ -1,0 +1,73 @@
+# Reference copy of the eve-log block that 03-configure-suricata.ps1 splices into
+# the installed suricata.yaml. Kept here so the intent is reviewable without reading
+# the patch script, and so it can be pasted by hand if the patcher ever fails.
+#
+# Indentation matters: this sits under "outputs:" at two spaces.
+#
+# DESIGN NOTES
+# ------------
+# types included, and why:
+#   alert  - the IDS signature hits. metadata/payload on so the dashboard shows
+#            enough to triage without going back to the pcap.
+#   dns    - requests only. Answers roughly double the volume and add little for
+#            "what is this host reaching for".
+#
+#            TWO TRAPS HERE, both hit during this build:
+#
+#            1. "types:" does NOT mean query/answer. In Suricata 8 it filters by DNS
+#               RECORD type (a, aaaa, cname, mx, ns, ptr, txt). Writing "types: [query]"
+#               filters for a record type named "query", which does not exist, so
+#               Suricata logs ZERO dns events -- silently, with no warning. Query vs
+#               answer is controlled by "requests:" and "responses:".
+#               Symptom: DNS rules still fire (the parser works) but no dns events
+#               ever appear in eve.json, which looks exactly like a DoH problem.
+#
+#            2. Suricata 8 defaults to DNS logging version 3, which restructures the
+#               dns object. Wazuh's json decoder and the custom rules key off the v2
+#               field names (dns.rrname, dns.rrtype), so version 2 is pinned
+#               explicitly. Revisit only if Wazuh's Suricata decoders move to v3.
+#   tls    - extended, for the SNI. On a modern endpoint this is the single most
+#            valuable field in the whole file: almost all traffic is HTTPS, so SNI
+#            is usually the only cleartext hostname on the wire.
+#   http   - extended, for hostname/url/method/user-agent.
+#   ssh    - cheap, low volume, genuinely useful.
+#
+# types deliberately EXCLUDED:
+#   flow / netflow - one event per connection. On a laptop this dwarfs everything
+#            else and would swamp both eve.json and the Wazuh manager. This is the
+#            single biggest volume decision in the whole config.
+#   stats  - not needed downstream; kept in the separate stats.log instead.
+#   files / fileinfo - noisy, and file extraction is out of scope for this PoC.
+#
+# rotate-interval: day
+#   Bounds growth. NOTE: verify this behaves on Windows while the Wazuh agent holds
+#   eve.json open -- rename-under-open-handle is well proven on Linux, less so here.
+#   scripts/05-verify.ps1 checks for it. If rotation wedges, the fallback is a
+#   scheduled task that stops Suricata, truncates, and restarts.
+
+  - eve-log:
+      enabled: yes
+      filetype: regular
+      filename: eve.json
+      rotate-interval: day
+      pcap-file: false
+      community-id: true
+      community-id-seed: 0
+      types:
+        - alert:
+            payload: yes
+            payload-buffer-size: 4kb
+            payload-printable: yes
+            packet: yes
+            metadata: yes
+            tagged-packets: yes
+        - dns:
+            enabled: yes
+            version: 2
+            requests: yes
+            responses: no
+        - tls:
+            extended: yes
+        - http:
+            extended: yes
+        - ssh
