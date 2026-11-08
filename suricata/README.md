@@ -17,6 +17,74 @@ Gives you two things:
 Single endpoint watching its own NIC. No switch mirroring, no SPAN/TAP. IDS only —
 nothing here blocks traffic.
 
+## What is Suricata?
+
+**Suricata** is an open-source **network intrusion detection system (IDS)**
+from the Open Information Security Foundation (OISF). It reads raw network
+packets, reassembles them into conversations, understands protocols (DNS, TLS,
+HTTP, SMB and more), and does two things with them:
+
+1. **Detection:** compares traffic against **signatures** (rules describing
+   attack traffic). This kit loads the free **Emerging Threats Open** ruleset,
+   about **52,000 signatures** covering malware command-and-control, exploits,
+   scans and policy violations.
+2. **Visibility:** writes a structured JSON log (`eve.json`) of every DNS
+   lookup, TLS connection (with the server name) and HTTP request, even when
+   no signature fires.
+
+Normally Suricata runs on a dedicated sensor watching a switch mirror port.
+This kit instead runs it **directly on each Windows endpoint**, watching that
+PC's own network adapters, so no extra hardware or network changes are needed.
+
+### How it works here
+
+```mermaid
+flowchart LR
+    N["Network traffic<br/>Wi-Fi + Ethernet"] --> P["Npcap<br/>packet capture driver"]
+    P --> S["Suricata<br/>protocol parsing + 52k signatures"]
+    S --> E["eve.json<br/>alerts + DNS / TLS / HTTP events"]
+    E --> A["Wazuh agent<br/>tails eve.json"]
+    A --> M["Manager: built-in + custom<br/>rules 100200-100232"]
+    M --> D["Dashboard: intrusion alerts<br/>+ network visibility"]
+    W["Watchdog task<br/>every 5 min"] -.->|"restarts capture if stopped<br/>or adapters change"| S
+```
+
+- **Npcap** gives Suricata the raw packets on Windows.
+- A **SYSTEM scheduled task** starts capture at boot, and a **watchdog** restarts
+  it if it stops or the PC switches network adapters.
+- The Wazuh agent forwards every `eve.json` line; the manager's custom rules turn
+  DNS/TLS/HTTP events into searchable alerts (Wazuh's stock rules discard them).
+
+### What you see in Wazuh
+
+| Rule | Level | Meaning |
+|---|---|---|
+| **100200 / 100201 / 100202** | 12 / 7 / 4 | Signature alert, high / medium / low severity |
+| **100205** | 10 | 8+ alerts from one source in 60 s (likely a scan) |
+| **100210** | 3 | DNS query (every domain resolved) |
+| **100211** | 8 | Possible DNS tunnelling (abnormally long label) |
+| **100212** | 5 | DNS query to a frequently abused TLD |
+| **100220 / 100221** | 3 / 4 | TLS connection with server name (SNI) / without SNI |
+| **100230** | 3 | HTTP request |
+| **100231** | 7 | Executable or archive downloaded over plain HTTP |
+| **100232** | 6 | Scripted HTTP client (curl, PowerShell, BITS…) |
+
+Dashboard search: `rule.groups:suricata`, or `rule.groups:network_visibility`
+for DNS/TLS/HTTP only.
+
+### Why a SOC cares
+
+- **Sees the network side of an attack:** command-and-control beacons, exploit
+  attempts and scans show up even when nothing touches the disk.
+  *ATT&CK: T1071 Application Layer Protocol, T1046 Network Service Discovery.*
+- **Answers "where did this PC talk to?":** every domain and HTTPS site is
+  recorded, which is often the first question in an investigation.
+- **Catches data exfiltration tricks:** DNS tunnelling and downloads of
+  executables over cleartext HTTP raise dedicated alerts.
+  *ATT&CK: T1071.004 DNS, T1105 Ingress Tool Transfer.*
+- **IDS, not IPS:** it observes and alerts; it never blocks traffic, so it
+  can't break anything on the endpoint.
+
 ---
 
 ## Start here

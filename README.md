@@ -9,13 +9,32 @@ Everything that runs on the **Wazuh manager** (custom rules, integrations,
 verification scripts) lives in the companion repo:
 **[wazuh-manager-toolkit](https://github.com/TanZero7/wazuh-manager-toolkit)**.
 
-```
-                 ┌──────────── Windows endpoint (this repo) ─────────────┐
- file change ──▶ │ FIM ──▶ YARA scan (active response)                   │
-                 │   └──▶ VirusTotal hash lookup ──▶ remove-threat.exe   │──▶ Wazuh agent ──▶ Wazuh manager
- process/reg ──▶ │ Sysmon                                                │       (rules + integrations:
- network     ──▶ │ Suricata IDS (DNS, TLS SNI, HTTP, ET Open signatures)│        wazuh-manager-toolkit)
-                 └───────────────────────────────────────────────────────┘
+```mermaid
+flowchart LR
+    subgraph EP["Windows endpoint (this repo)"]
+        direction TB
+        FIM["FIM<br/>Desktop + Downloads"]
+        YA["YARA scan"]
+        RT["remove-threat.exe"]
+        SY["Sysmon<br/>process / registry / network"]
+        SU["Suricata IDS<br/>DNS, TLS, HTTP, 52k signatures"]
+        AG["Wazuh agent"]
+        FIM --> AG
+        SY --> AG
+        SU --> AG
+        YA --> AG
+    end
+    subgraph MG["Wazuh manager (wazuh-manager-toolkit)"]
+        direction TB
+        RU["Rules: built-in + custom<br/>Suricata 1002xx, YARA 1007xx"]
+        IN["Integrations:<br/>VirusTotal, Active Response"]
+    end
+    AG -->|"events"| RU
+    RU --> IN
+    IN -.->|"scan this file"| YA
+    IN -.->|"delete this file"| RT
+    IN <-->|"hash lookup"| VT["VirusTotal"]
+    RU --> DB["Dashboard<br/>alerts + MITRE ATT&CK"]
 ```
 
 ## Capabilities
