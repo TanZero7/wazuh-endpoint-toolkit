@@ -13,6 +13,44 @@ stack paused.
 | `wazuh-control.ps1` | **Pause / resume** everything Wazuh on this PC (agent + Suricata capture), with a Resume that restores it exactly. One switch, for heavy work / gaming / privacy windows. |
 | `exclude.ps1` | Mark a **folder off-limits** to every capability — FIM, VirusTotal (and its Active Response) and YARA all skip it (Sysmon's include-only config already never logs ordinary files there). Nothing checks, scans, hashes, lists, or touches it. |
 
+## What are these tools for?
+
+Monitoring sometimes has to step aside: a machine doing heavy work where the
+agent's CPU or disk use matters, a folder full of large files that generates
+endless FIM noise, or a game/build folder full of executables that keeps
+triggering scans. Doing that by hand means editing `ossec.conf`, stopping
+services and remembering to undo it all, which is error-prone and easy to forget.
+
+These two scripts make it **one command, fully reversible, and auditable**:
+
+- **`wazuh-control.ps1`** pauses or resumes *everything* this toolkit installed
+  on the PC, and leaves a marker file so it's obvious the machine is paused.
+- **`exclude.ps1`** keeps one list of excluded folders and applies it to every
+  capability at once.
+
+### How an exclusion propagates
+
+```mermaid
+flowchart LR
+    X["exclude.ps1 -Add 'D:\Games'"] --> L["exclusions.txt<br/>single source of truth"]
+    L --> F["FIM: ignore entry in ossec.conf<br/>+ agent restart"]
+    L --> Y["YARA scan script<br/>skips the path at runtime"]
+    F --> V["VirusTotal + Active Response<br/>never triggered: no FIM event"]
+    S["Sysmon"] -.->|"unchanged on purpose:<br/>processes + network still logged"| P["Still visible"]
+```
+
+### Why a SOC cares
+
+- **Exclusions are a classic attacker hiding place**, so this design keeps them
+  safe: *file* monitoring stops for the folder, but **process execution and
+  network activity from it are still recorded** by Sysmon and Suricata. A folder
+  can't become a blind spot for running code.
+- **A pause is visible, not silent:** the manager shows the agent as
+  disconnected and the marker file records when the pause started.
+  *Related ATT&CK: T1562.001 Impair Defenses: Disable or Modify Tools*. This is
+  the legitimate version of what an attacker would try to do, so it's worth
+  alerting on unexpected agent disconnects.
+
 ---
 
 ## Start here

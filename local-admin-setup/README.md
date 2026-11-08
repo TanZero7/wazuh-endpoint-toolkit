@@ -3,6 +3,40 @@
 Pre-install step for every endpoint. Run it once per PC, before
 installing the Wazuh agent or running anything else in this repo.
 
+## Why this step exists
+
+On many office PCs, the everyday user account is a **local administrator**.
+That means anything the user runs (a malicious attachment, a fake installer)
+also runs with admin rights: it can disable security tools, install services,
+or tamper with the Wazuh agent itself. Shared or default admin accounts (like
+the built-in `Administrator`) are also a favourite target for password guessing
+and lateral movement.
+
+This script applies **least privilege** before anything else is installed:
+
+```mermaid
+flowchart TD
+    A["Run-Setup.cmd (self-elevates)"] --> B["Create or reset local 'admin'<br/>+ add to Administrators"]
+    B --> C["Remove every OTHER account<br/>from Administrators<br/>(accounts kept, just not admin)"]
+    C --> D["Disable built-in Administrator"]
+    D --> E["Print who is admin now"]
+    E --> F["Run-Verify.cmd: PASS / REVIEW NEEDED"]
+```
+
+It's ordered so the PC is **never left without an administrator**: `admin` is
+confirmed first, and only then are other accounts demoted.
+
+### Why a SOC cares
+
+- Malware running as a standard user **can't** stop the Wazuh agent, Sysmon or
+  Suricata, so the monitoring installed afterwards stays trustworthy.
+- Fewer admin accounts means fewer credentials worth stealing.
+  *ATT&CK mitigations for T1078.003 Valid Accounts: Local Accounts and
+  T1548 Abuse Elevation Control Mechanism.*
+- `Run-Verify.cmd` gives an auditable PASS per machine.
+
+---
+
 ## What it does
 
 1. Creates a local account named **`admin`** (or resets its password if

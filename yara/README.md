@@ -24,6 +24,73 @@ Gives you:
 Results come back as Wazuh alerts: **rule 100700** = match, **100701** = clean scan.
 It only scans and reports; it never deletes or moves files.
 
+## What is YARA?
+
+**YARA** is the pattern-matching tool malware analysts use to describe and find
+malware families, often called "grep for malware". A YARA **rule** lists
+strings or byte patterns plus a condition, and YARA reports which rules match a
+given file. For example:
+
+```yara
+rule Suspicious_PowerShell_Download {
+    strings:
+        $a = "DownloadString" nocase
+        $b = "IEX" nocase
+    condition:
+        $a and $b
+}
+```
+
+Unlike a hash check (which only recognises the *exact* known file), YARA looks
+at **what's inside** the file, so it can catch **new variants** of a known
+family, repacked samples, and malicious scripts that have never been seen before.
+
+This kit installs `yara64.exe` with **416 open-source rules** from
+[Neo23x0/signature-base](https://github.com/Neo23x0/signature-base), and runs a
+scan **automatically on every file FIM sees added or changed**.
+
+### How it works here
+
+```mermaid
+sequenceDiagram
+    participant U as User / attacker
+    participant A as Wazuh agent (FIM)
+    participant M as Wazuh manager
+    participant S as yara-scan (on the agent)
+    U->>A: File saved to Downloads
+    A->>M: FIM event (rule 554 / 550)
+    M->>A: Active response: run yara-scan for that file
+    A->>S: yara-scan.cmd with the file path
+    S->>S: yara64.exe scans file against index.yar
+    S->>A: Writes one JSON line to yara-results.log
+    A->>M: Agent ships the result line
+    M->>M: Rule 100700 (match) or 100701 (clean)
+```
+
+No polling and no full-disk sweeps: each changed file is scanned once, seconds
+after it appears.
+
+### What you see in Wazuh
+
+| Rule | Level | Meaning | Key fields |
+|---|---|---|---|
+| **100700** | 12 | YARA rule matched | `data.yara_rule`, `data.yara_scanned_file` (MITRE T1204.002) |
+| **100701** | 3 | File scanned, clean | `data.yara_scanned_file` |
+
+Dashboard search: `rule.groups:yara_alert` for matches only.
+
+### Why a SOC cares
+
+- **Catches what hashes miss:** a recompiled or slightly modified sample has a
+  brand-new hash but still contains the same code patterns.
+- **Explains the detection:** the alert names the exact rule that fired
+  (e.g. a webshell or a specific malware family), which speeds triage.
+- **Layered with VirusTotal:** VirusTotal answers "is this exact file known
+  bad?"; YARA answers "does this file *look like* known bad?". Running both on
+  the same FIM event covers each other's blind spots.
+- **Proven quietly:** 100701 clean results confirm the pipeline is alive even
+  when nothing malicious is around.
+
 ---
 
 ## Start here

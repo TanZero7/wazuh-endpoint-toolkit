@@ -20,6 +20,62 @@ Gives you:
    dumping, T1055 process injection, T1547 persistence, T1218 LOLBins, and
    more).
 
+## What is Sysmon?
+
+**Sysmon (System Monitor)** is a free Microsoft Sysinternals tool: a Windows
+service plus a kernel driver that records detailed security events to its own
+event log (`Microsoft-Windows-Sysmon/Operational`). Standard Windows logging
+tells you *that* a program ran; Sysmon tells you **what ran, with its full
+command line, which process launched it, the file's hash, what it connected to,
+what it wrote and which registry keys it touched**.
+
+What gets logged is controlled by an XML config. This kit uses the widely used
+open-source [SwiftOnSecurity](https://github.com/SwiftOnSecurity/sysmon-config)
+config, which keeps the security-relevant events and filters out routine noise.
+
+### How it works here
+
+```mermaid
+flowchart LR
+    A["Activity on the PC:<br/>process, network, file, registry"] --> B["Sysmon kernel driver"]
+    B --> C["Filtered by the<br/>SwiftOnSecurity config"]
+    C --> D["Windows event log<br/>Microsoft-Windows-Sysmon/Operational"]
+    D --> E["Wazuh agent reads the channel<br/>(eventchannel localfile)"]
+    E --> F["Manager: ~150 built-in<br/>Sysmon rules"]
+    F --> G["Alerts mapped to<br/>MITRE ATT&CK"]
+```
+
+### Sysmon events you'll use most
+
+| Event ID | What it records | Example of what it catches |
+|---|---|---|
+| **1** | Process created (full command line, parent, hashes) | `powershell -enc …` launched by Word |
+| **3** | Network connection | an unknown binary calling out to an internet IP |
+| **7** | Image (DLL) loaded | DLL side-loading |
+| **8** | CreateRemoteThread | process injection |
+| **10** | Process accessed another process | credential dumping from `lsass.exe` |
+| **11** | File created | executable dropped in a startup folder |
+| **12 / 13 / 14** | Registry key/value created, set, renamed | Run-key persistence |
+| **22** | DNS query | lookups for suspicious domains |
+
+### What you see in Wazuh
+
+Wazuh ships rules for these events out of the box; alerts carry the
+`sysmon_eventN` group and MITRE technique IDs. Useful searches:
+`rule.groups:sysmon_event1` (process creation), `rule.groups:sysmon_event3`
+(network), `rule.groups:sysmon_event13` (registry), `rule.mitre.id:T1059*`
+(command interpreters).
+
+### Why a SOC cares
+
+Most real intrusions are visible as **process behaviour**, not files: a script
+interpreter spawned by an Office document, a living-off-the-land binary
+(`rundll32`, `mshta`, `certutil`) doing something unusual, a process opening
+`lsass.exe`. Sysmon is the standard source for that telemetry. In this
+deployment it covered **40+ ATT&CK techniques on its own**, including *T1059
+Command and Scripting Interpreter, T1003 OS Credential Dumping, T1055 Process
+Injection, T1547 Boot or Logon Autostart, T1218 System Binary Proxy Execution*.
+
 ---
 
 ## Start here
