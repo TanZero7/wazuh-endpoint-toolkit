@@ -66,7 +66,7 @@ function Assert-Elevated {
     $id = [Security.Principal.WindowsIdentity]::GetCurrent()
     $principal = New-Object Security.Principal.WindowsPrincipal($id)
     if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-        Stop-WithError 'This script requires Administrator. Relaunch Claude Code (or PowerShell) elevated.'
+        Stop-WithError 'This script requires Administrator. Relaunch PowerShell as Administrator.'
     }
     Write-Ok "Running elevated as $($id.Name)"
 }
