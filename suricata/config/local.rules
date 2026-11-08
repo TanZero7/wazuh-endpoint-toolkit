@@ -1,0 +1,80 @@
+# Local Suricata rules for the Wazuh integration.
+# Installed to C:\Program Files\Suricata\rules\local.rules by 02-install-suricata.ps1.
+#
+# SID range 1000000-1000999 is the conventional local range and will not collide with
+# Emerging Threats.
+#
+# All rules are "alert" only. This deployment is IDS, not IPS -- nothing here drops
+# traffic. Turning any of these into "drop" would require Suricata to be inline
+# (WinDivert on Windows), which is explicitly out of scope.
+
+# --------------------------------------------------------------------------
+# SMOKE TESTS -- prove the pipeline end to end
+#
+# These exist to answer "is anything actually working" without waiting for a real
+# threat. Each is trivially triggerable from the endpoint. See INTEGRATION-GUIDE.md section 7.2 for manual triggers.
+# --------------------------------------------------------------------------
+
+# Trigger:  Resolve-DnsName suricata-canary.test-wazuh.local
+# The domain does not resolve; the QUERY is what matters, and NXDOMAIN is fine.
+alert dns any any -> any any (msg:"LOCAL SMOKETEST DNS canary query observed"; dns.query; content:"suricata-canary"; nocase; classtype:not-suspicious; sid:1000001; rev:1;)
+
+# Trigger:  curl.exe http://testmynids.org/uid.php
+# The canonical NIDS smoke test: the server echoes a fake "uid=0(root)" response.
+alert http any any -> any any (msg:"LOCAL SMOKETEST id check returned root"; flow:established,to_client; content:"uid=0|28|root|29|"; classtype:bad-unknown; sid:1000002; rev:1;)
+
+# Trigger:  Invoke-WebRequest -Uri http://<anything> -UserAgent "SuricataSmokeTest/1.0"
+alert http any any -> any any (msg:"LOCAL SMOKETEST custom user agent"; flow:established,to_server; http.user_agent; content:"SuricataSmokeTest"; classtype:not-suspicious; sid:1000003; rev:1;)
+
+
+# --------------------------------------------------------------------------
+# ENDPOINT-RELEVANT DETECTIONS
+#
+# Tuned for a single Windows endpoint watching its own traffic. Deliberately few:
+# the ET Open ruleset already covers the broad ground, and every extra local rule is
+# something you have to maintain and tune.
+# --------------------------------------------------------------------------
+
+# Inbound TCP connection attempts across many ports from one source = port scan.
+# threshold keeps this to one alert per source per minute instead of one per port.
+alert tcp $EXTERNAL_NET any -> $HOME_NET any (msg:"LOCAL Port scan against this host"; flags:S,12; threshold:type both,track by_src,count 15,seconds 60; classtype:attempted-recon; sid:1000010; rev:1;)
+
+# Same shape over UDP.
+alert udp $EXTERNAL_NET any -> $HOME_NET any (msg:"LOCAL UDP scan against this host"; threshold:type both,track by_src,count 25,seconds 60; classtype:attempted-recon; sid:1000011; rev:1;)
+
+# NOTE ON PRIORITY
+# Every rule below sets "priority:" explicitly rather than inheriting it from classtype.
+# The inherited values are badly calibrated for this use case: classification.config maps
+# both policy-violation and trojan-activity to priority 1, and manager rule 100200
+# escalates any severity-1 Suricata alert to Wazuh level 12. Left alone, a routine
+# "DNS query went to an external resolver" arrived in the dashboard at the same severity
+# as a confirmed malware C2 callback. Explicit priority keeps that honest:
+#   1 = act now   2 = investigate   3 = informational
+
+# Cleartext credentials over HTTP POST. Rare and always worth knowing about.
+alert http $HOME_NET any -> $EXTERNAL_NET any (msg:"LOCAL Possible cleartext credentials in HTTP POST"; flow:established,to_server; http.method; content:"POST"; http.request_body; content:"password="; nocase; classtype:policy-violation; priority:2; sid:1000020; rev:2;)
+
+# Windows script interpreters and living-off-the-land binaries fetching over HTTP.
+# Complements manager rule 100232, which catches the same shape server-side.
+# priority:2 not 1 -- PowerShell and BITS user agents are common in normal Windows
+# operation (Windows Update itself uses BITS), so this warrants a look, not an alarm.
+alert http $HOME_NET any -> $EXTERNAL_NET any (msg:"LOCAL LOLBin HTTP download cradle"; flow:established,to_server; http.user_agent; pcre:"/(powershell|bitsadmin|certutil|Microsoft.BITS|WindowsPowerShell)/i"; classtype:trojan-activity; priority:2; sid:1000021; rev:2;)
+
+# Oversized ICMP payloads -- the classic ICMP tunnelling shape.
+alert icmp $HOME_NET any -> $EXTERNAL_NET any (msg:"LOCAL Oversized ICMP - possible tunnelling"; dsize:>800; threshold:type both,track by_src,count 10,seconds 60; classtype:bad-unknown; priority:2; sid:1000030; rev:2;)
+
+# Outbound SMB to the internet. On a laptop this is almost always either
+# misconfiguration or an NTLM-leak attempt; it should never be normal.
+alert tcp $HOME_NET any -> $EXTERNAL_NET 445 (msg:"LOCAL Outbound SMB to the internet"; flow:to_server; classtype:policy-violation; priority:1; sid:1000031; rev:2;)
+
+# Plaintext DNS to a resolver outside the local network can indicate DNS hijacking or an
+# application bypassing local policy. Adjust the excluded resolvers for your LAN.
+#
+# NOTE: no "dns.query;" here. That is a sticky buffer and Suricata rejects a rule that
+# opens one without a following content match ("setup buffer dns_query but didn't add
+# matches to it"), which is fatal to the whole ruleset load. This rule cares only about
+# where the query is going, not what it asks for, so the buffer is not needed at all.
+# priority:3 (informational). Inheriting policy-violation's priority 1 made every one of
+# these arrive as a Wazuh level 12 alert, which is absurd for a machine that legitimately
+# uses a public resolver. This is context, not an incident.
+alert dns $HOME_NET any -> !$HOME_NET 53 (msg:"LOCAL DNS query to external resolver"; threshold:type limit,track by_src,count 1,seconds 300; classtype:policy-violation; priority:3; sid:1000040; rev:3;)
