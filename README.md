@@ -1,5 +1,10 @@
 # Wazuh Endpoint Toolkit
 
+![Wazuh 4.x](https://img.shields.io/badge/Wazuh-4.x%20(tested%204.14)-3595F7)
+![PowerShell 5.1+](https://img.shields.io/badge/PowerShell-5.1%2B-5391FE?logo=powershell&logoColor=white)
+![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6)
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow)
+
 Windows **endpoint-side** deployment kits for a Wazuh SIEM: one folder per
 capability, each with its own scripts, README and integration guide. Built,
 debugged and validated end-to-end on live production Wazuh-monitored Windows
