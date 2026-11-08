@@ -32,15 +32,25 @@ verification scripts) lives in the companion repo:
 
 ## How to deploy
 
-1. **[local-admin-setup](local-admin-setup)**: run first, once per PC.
-2. Install and enroll the **Wazuh agent** (version no newer than the manager).
-3. **[guides/ENDPOINT-SETUP-GUIDE.md](guides/ENDPOINT-SETUP-GUIDE.md)**:
-   FIM → Suricata → VirusTotal Active Response, as literal copy-paste steps.
-4. **[guides/SYSMON-YARA-SETUP-GUIDE.md](guides/SYSMON-YARA-SETUP-GUIDE.md)**:
-   Sysmon and YARA, endpoint and manager steps in order.
+**Always: manager side first → endpoint side → verify.**
 
-FIM comes first: YARA and VirusTotal are both triggered by FIM events.
-Every script asserts it's running elevated and prints `[PASS]`/`[FAIL]` checks.
+1. **Manager**: [wazuh-manager-toolkit → guides/MANAGER-SETUP-GUIDE.md](https://github.com/TanZero7/wazuh-manager-toolkit/blob/main/guides/MANAGER-SETUP-GUIDE.md).
+2. **[local-admin-setup](local-admin-setup)**: once per PC.
+3. Install and enroll the **Wazuh agent** (version no newer than the manager).
+4. **[guides/ENDPOINT-SETUP-GUIDE.md](guides/ENDPOINT-SETUP-GUIDE.md)**:
+   FIM → Suricata → VirusTotal Active Response, then their verification.
+5. **[guides/SYSMON-YARA-SETUP-GUIDE.md](guides/SYSMON-YARA-SETUP-GUIDE.md)**:
+   Sysmon and YARA, then their verification.
+
+Only need one capability (say, FIM)? Open its folder: the README and
+`INTEGRATION-GUIDE.md` start with a link to its manager side, then cover the
+endpoint install and the verification for that capability alone.
+
+FIM comes first on the endpoint: YARA and VirusTotal are both triggered by FIM
+events. Every verify script prints `[PASS]`/`[FAIL]` per check. **If something
+shows `[FAIL]` right after installing, wait 5–10 minutes and run it again**:
+several checks read status files the agent only rewrites a few minutes after a
+restart.
 
 ## Engineering notes
 

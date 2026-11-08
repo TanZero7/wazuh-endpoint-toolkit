@@ -40,8 +40,8 @@ Check "Agent wired to read the results log" $wired
 
 if ($ok) {
     # [fix] was "section 5" -- section 5 is just the "Observed on a
-    # real deployment" metrics table. The actual live-test steps are in 4.1.
-    Write-Host "`nAll static checks passed. For a full live test, see INTEGRATION-GUIDE.md section 4.1." -ForegroundColor Green
+    # real deployment" metrics table. The actual live-test steps are in 4.2.
+    Write-Host "`nAll static checks passed. For a full live test, see INTEGRATION-GUIDE.md section 4.2." -ForegroundColor Green
 } else {
     Write-Host "`nSome checks failed -- see above." -ForegroundColor Yellow
     # [fix] The "ar.conf" check above depends on the MANAGER pushing
@@ -52,6 +52,6 @@ if ($ok) {
     # one isn't reading a state file that catches up after an agent restart --
     # it's waiting on the manager's own push cycle to reach this agent).
     if (-not $arOk) {
-        Write-Host "If 'Manager has pushed yara-scan into ar.conf' just failed right after completing the server-side manager steps (section 3), wait a few minutes and run this script again before troubleshooting further -- the manager pushes ar.conf out on its own cycle, it doesn't happen the instant you restart wazuh-manager." -ForegroundColor Yellow
+        Write-Host "If 'Manager has pushed yara-scan into ar.conf' failed, wait 5-10 minutes after installation and run this script again before troubleshooting further -- the manager pushes ar.conf out on its own cycle. If it keeps failing, the manager side (wazuh-manager-toolkit/yara) is not done yet." -ForegroundColor Yellow
     }
 }

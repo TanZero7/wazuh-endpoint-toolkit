@@ -1,5 +1,8 @@
 # Suricata: Windows Endpoint Network IDS
 
+> **Order:** [manager side](https://github.com/TanZero7/wazuh-manager-toolkit/tree/main/suricata) **first** → then this endpoint folder → then verify ([INTEGRATION-GUIDE.md § 5](INTEGRATION-GUIDE.md)).
+> Every check prints `[PASS]`/`[FAIL]`; if something shows `[FAIL]`, wait **5–10 minutes after installation** and run it again before troubleshooting.
+
 Runs Suricata directly on a Windows endpoint to watch that machine's own traffic, and
 forwards everything to Wazuh. A Windows adaptation of Wazuh's official
 [Suricata Network IDS proof of concept](https://documentation.wazuh.com/current/proof-of-concept-guide/integrate-network-ids-suricata.html).
@@ -52,9 +55,9 @@ config/
 `prereqs/`, `logs/` and `state/` appear in this folder once you run something.
 They hold downloads, transcripts and derived facts, and are safe to delete.
 
-The **manager-side rules** (100200–100232) live in `suricata/` of
-[wazuh-manager-toolkit](https://github.com/TanZero7/wazuh-manager-toolkit).
-**That step is not optional.** Wazuh's built-in Suricata rules for DNS, TLS and HTTP
+The **manager-side rules** (100200–100232) live in
+[wazuh-manager-toolkit → suricata](https://github.com/TanZero7/wazuh-manager-toolkit/tree/main/suricata).
+**Install them first; that step is not optional.** Wazuh's built-in Suricata rules for DNS, TLS and HTTP
 are level 0, meaning "decode then discard", so without the custom rules you get
 signature alerts and no network visibility at all.
 
@@ -75,7 +78,6 @@ powershell -ExecutionPolicy Bypass -File .\scripts\00-preflight.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\02-install-suricata.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\03-configure-suricata.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\04-wire-wazuh-agent.ps1
-powershell -ExecutionPolicy Bypass -File .\scripts\05-verify.ps1
 ```
 
 > **If you get "running scripts is disabled on this system"**: that's PowerShell's
@@ -86,12 +88,16 @@ powershell -ExecutionPolicy Bypass -File .\scripts\05-verify.ps1
 
 ## Check it's working
 
-```
-Run-Verify.cmd
+```bat
+powershell -ExecutionPolicy Bypass -File .\scripts\05-verify.ps1
 ```
 
+Every line should be `[PASS]`, ending in **"Endpoint side is fully working."**
+(full expected output in [INTEGRATION-GUIDE.md § 5.1](INTEGRATION-GUIDE.md#51--confirm-the-install-pass--fail)).
+If something shows `[FAIL]`, wait 5–10 minutes after installation and run it again.
+
 To generate test traffic, use the manual triggers in
-[INTEGRATION-GUIDE.md § 7.2](INTEGRATION-GUIDE.md#72--manual-triggers).
+[INTEGRATION-GUIDE.md § 5.2](INTEGRATION-GUIDE.md#52--manual-triggers).
 Then in the Wazuh dashboard: **Threat Hunting** → index `wazuh-alerts-*` → search
 `rule.groups:suricata`.
 

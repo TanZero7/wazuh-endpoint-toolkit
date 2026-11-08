@@ -1,5 +1,8 @@
 # FIM: File Integrity Monitoring (Desktop + Downloads)
 
+> **Order:** [manager side](https://github.com/TanZero7/wazuh-manager-toolkit/tree/main/fim) **first** → then this endpoint folder → then verify ([INTEGRATION-GUIDE.md § 3](INTEGRATION-GUIDE.md)).
+> Every check prints `[PASS]`/`[FAIL]`; if something shows `[FAIL]`, wait **5–10 minutes after installation** and run it again before troubleshooting.
+
 Adds a standardized File Integrity Monitoring scope — Desktop and Downloads,
 every user profile on the machine — to a Wazuh agent, realtime, with new-file
 alerting on. This is the trigger event the other capabilities in this toolkit
@@ -37,7 +40,7 @@ Follow **[../guides/ENDPOINT-SETUP-GUIDE.md § 1](../guides/ENDPOINT-SETUP-GUIDE
 
 ## Check it's working
 
-`scriptserify.ps1` (or `Run-Verify.cmd`), then create or edit a file in Desktop or
+`scripts\verify.ps1` (or `Run-Verify.cmd`): every line `[PASS]`, ending in "All checks passed." Then create or edit a file in Desktop or
 Downloads and watch the dashboard (`rule.groups:syscheck`). Expect an
 alert within a couple of seconds.
 

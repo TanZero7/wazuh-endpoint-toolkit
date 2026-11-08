@@ -1,5 +1,8 @@
 # Endpoint Control: Operator Tools
 
+> **Order:** no manager side. Use these after the other capabilities are installed (each of those: manager first → endpoint → verify).
+> Confirm state with `wazuh-control.ps1 -Status`; expected output and PASS/FAIL table in [INTEGRATION-GUIDE.md § 4](INTEGRATION-GUIDE.md#4-verification).
+
 Two operator utilities for a Wazuh-monitored Windows endpoint. Unlike the other
 folders in this repo (which *add* detection), these *control* what the endpoint's
 Wazuh stack does — for the times you need a folder left alone, or the whole

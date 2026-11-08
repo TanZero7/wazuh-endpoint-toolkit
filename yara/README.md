@@ -1,5 +1,8 @@
 # YARA: Scan-on-Change Malware Detection
 
+> **Order:** [manager side](https://github.com/TanZero7/wazuh-manager-toolkit/tree/main/yara) **first** → then this endpoint folder → then verify ([INTEGRATION-GUIDE.md § 4](INTEGRATION-GUIDE.md)).
+> Every check prints `[PASS]`/`[FAIL]`; if something shows `[FAIL]`, wait **5–10 minutes after installation** and run it again before troubleshooting.
+
 Installs the YARA scanning engine and an open-source signature pack on a
 Windows endpoint, and wires it to fire automatically, via Wazuh
 **active-response**, every time File Integrity Monitoring sees a file
@@ -27,7 +30,7 @@ It only scans and reports; it never deletes or moves files.
 
 | If you want to... | Read |
 |---|---|
-| **Deploy step by step (endpoint + manager)** | **[../guides/SYSMON-YARA-SETUP-GUIDE.md § 2](../guides/SYSMON-YARA-SETUP-GUIDE.md#2-yara)** |
+| **Deploy step by step** | **[../guides/SYSMON-YARA-SETUP-GUIDE.md § 2](../guides/SYSMON-YARA-SETUP-GUIDE.md#2-yara-endpoint)** |
 | Full reference, live test, Windows gotchas, troubleshooting | [INTEGRATION-GUIDE.md](INTEGRATION-GUIDE.md) |
 
 ## Folder layout
@@ -49,27 +52,23 @@ The manager half (rules 100700/100701, the `ossec.conf` active-response block,
 logtest samples) lives in `yara/` of
 [wazuh-manager-toolkit](https://github.com/TanZero7/wazuh-manager-toolkit).
 
-## Install
+## Install (endpoint)
 
-Both halves are required: the endpoint alone won't do anything until the
-manager knows to trigger it, and the manager alone has nothing to trigger.
+The [manager side](https://github.com/TanZero7/wazuh-manager-toolkit/tree/main/yara) must be done first. Both halves are required:
+the endpoint alone does nothing until the manager knows to trigger it.
 
-1. **Endpoint** (elevated Command Prompt):
-   ```bat
-   cd yara
-   powershell -ExecutionPolicy Bypass -File .\scripts\install-yara.ps1
-   powershell -ExecutionPolicy Bypass -File .\scripts\wire-active-response.ps1
-   powershell -ExecutionPolicy Bypass -File .\scripts\verify.ps1
-   ```
-2. **Manager**: `sudo bash install-manager-rules.sh`, then paste the
-   active-response block into `ossec.conf` by hand, config-test, and restart.
-   This is the one step that stays manual on purpose (see the guide).
+Elevated Command Prompt:
+```bat
+cd yara
+powershell -ExecutionPolicy Bypass -File .\scripts\install-yara.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\wire-active-response.ps1
+```
 
 ## Check it's working
 
-`scripts\verify.ps1` (or `Run-Verify.cmd`). Static checks alone don't prove the
-active-response chain fires, so do the live marker-file test in the
-[setup guide § 2.4](../guides/SYSMON-YARA-SETUP-GUIDE.md#24-verify-end-to-end).
+1. `scripts\verify.ps1`: every line `[PASS]`, ending in "All static checks passed."
+2. Live marker-file test: [INTEGRATION-GUIDE.md § 4.2](INTEGRATION-GUIDE.md#42-live-end-to-end-test-recommended)
+   (static checks alone don't prove the active-response chain fires).
 
 ## Deploying to another Windows machine
 

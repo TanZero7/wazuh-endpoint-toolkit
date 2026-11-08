@@ -1,5 +1,8 @@
 # Sysmon: Windows Process Telemetry
 
+> **Order:** [manager side](https://github.com/TanZero7/wazuh-manager-toolkit/tree/main/sysmon) **first** → then this endpoint folder → then verify ([INTEGRATION-GUIDE.md § 4](INTEGRATION-GUIDE.md)).
+> Every check prints `[PASS]`/`[FAIL]`; if something shows `[FAIL]`, wait **5–10 minutes after installation** and run it again before troubleshooting.
+
 Installs Microsoft Sysinternals Sysmon on a Windows endpoint with the
 [SwiftOnSecurity](https://github.com/SwiftOnSecurity/sysmon-config) baseline
 configuration, and wires the local Wazuh agent to read its event log. Wazuh's
@@ -23,7 +26,7 @@ Gives you:
 
 | If you want to... | Read |
 |---|---|
-| **Deploy step by step (endpoint + manager)** | **[../guides/SYSMON-YARA-SETUP-GUIDE.md § 1](../guides/SYSMON-YARA-SETUP-GUIDE.md#1-sysmon)** |
+| **Deploy step by step** | **[../guides/SYSMON-YARA-SETUP-GUIDE.md § 1](../guides/SYSMON-YARA-SETUP-GUIDE.md#1-sysmon-endpoint)** |
 | Full reference, verification, troubleshooting | [INTEGRATION-GUIDE.md](INTEGRATION-GUIDE.md) |
 
 ## Folder layout
@@ -50,14 +53,13 @@ verifies that ruleset is present.
 cd sysmon
 powershell -ExecutionPolicy Bypass -File .\scripts\install-sysmon.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\wire-wazuh-agent.ps1
-powershell -ExecutionPolicy Bypass -File .\scripts\verify.ps1
 ```
 
 Or right-click `Run-Setup.cmd` → *Run as administrator*.
 
 ## Check it's working
 
-Run `scripts\verify.ps1` (or `Run-Verify.cmd`), then in the Wazuh dashboard:
+Run `scripts\verify.ps1` (or `Run-Verify.cmd`): every line `[PASS]`, ending in "All checks passed." Then in the Wazuh dashboard:
 **Threat Hunting** → index `wazuh-alerts-*` → `rule.groups:sysmon_event1`
 (or `_event3`, `_event11`, etc. for other event types).
 

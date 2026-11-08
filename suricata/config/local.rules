@@ -12,7 +12,7 @@
 # SMOKE TESTS -- prove the pipeline end to end
 #
 # These exist to answer "is anything actually working" without waiting for a real
-# threat. Each is trivially triggerable from the endpoint. See INTEGRATION-GUIDE.md section 7.2 for manual triggers.
+# threat. Each is trivially triggerable from the endpoint. See INTEGRATION-GUIDE.md section 5.2 for manual triggers.
 # --------------------------------------------------------------------------
 
 # Trigger:  Resolve-DnsName suricata-canary.test-wazuh.local

@@ -5,7 +5,7 @@
 
     This is the ENDPOINT half. The manager also needs the matching
     <command>/<active-response> block added to ossec.conf and the rules file
-    installed -- see INTEGRATION-GUIDE.md section 3 (Manager). Both halves
+    installed -- see wazuh-manager-toolkit/yara (do it FIRST). Both halves
     are required; this script alone does nothing until the server side is
     done too.
 
@@ -70,4 +70,4 @@ Write-Host "`nRestarting WazuhSvc..."
 Restart-Service -Name WazuhSvc -Force
 (Get-Service WazuhSvc).WaitForStatus('Running', '00:01:00')
 Write-Host "WazuhSvc restarted."
-Write-Host "`nNOTE: the manager side (INTEGRATION-GUIDE.md section 3, Manager) must also be done before this does anything."
+Write-Host "`nNOTE: the manager side (wazuh-manager-toolkit/yara) must also be done before this does anything. Next: run scripts\verify.ps1 (wait 5-10 min and re-run if anything shows FAIL)."
