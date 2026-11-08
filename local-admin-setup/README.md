@@ -31,8 +31,21 @@ it only lives in memory for the few seconds the script needs it, so
 **write it down somewhere safe yourself** — this account becomes the
 only local admin on that machine.
 
-To spot-check a PC later without re-entering the password (and without
-changing anything), run **`Run-Verify.cmd`** instead — it's read-only.
+## Confirm it worked (PASS / REVIEW)
+
+Run **`Run-Verify.cmd`** (read-only, never asks for the password, safe to run any
+time). It prints the Administrators group and every local account, then one verdict:
+
+```
+PASS: 'admin' is the only enabled local administrator; built-in Administrator is disabled.
+```
+
+| Result | Meaning |
+|---|---|
+| **PASS** line (green) | Done. Install the Wazuh agent next |
+| **REVIEW NEEDED** (yellow) + reasons | Read the listed reason (`'admin' account is missing…`, `built-in Administrator account is still enabled`, `unexpected admin(s): …`) and re-run `Run-Setup.cmd` |
+
+This step has no manager side and no waiting period: the result is immediate.
 
 ## Before you run this on every PC
 

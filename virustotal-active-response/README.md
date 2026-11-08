@@ -1,5 +1,8 @@
 # VirusTotal Active Response (endpoint half)
 
+> **Order:** [manager side](https://github.com/TanZero7/wazuh-manager-toolkit/tree/main/virustotal) **first** → then this endpoint folder → then verify ([INTEGRATION-GUIDE.md § 3](INTEGRATION-GUIDE.md)).
+> Every check prints `[PASS]`/`[FAIL]`; if something shows `[FAIL]`, wait **5–10 minutes after installation** and run it again before troubleshooting.
+
 Wazuh's VirusTotal integration looks up the hash of every file FIM sees added or
 changed. On its own it only **alerts** (rule 87105). This folder adds the
 endpoint half of **Active Response**: when VirusTotal reports a file as malicious,
@@ -28,11 +31,8 @@ bin/
 
 ## Prerequisites
 
-1. **Manager side first**, from `virustotal/` in
-   [wazuh-manager-toolkit](https://github.com/TanZero7/wazuh-manager-toolkit):
-   `add-virustotal-integration.sh <API_KEY>`, then `add-virustotal-active-response.sh`,
-   and optionally `install-manager-rules.sh` (rules 100092/100093: clear
-   success/failure alerts with the file path).
+1. **Manager side first**: [wazuh-manager-toolkit → virustotal](https://github.com/TanZero7/wazuh-manager-toolkit/tree/main/virustotal)
+   (VirusTotal integration + the Active Response block).
 2. **FIM** installed on the endpoint ([../fim](../fim)), because VirusTotal is triggered by FIM events.
 3. **`remove-threat.exe`** placed in `bin\`. See
    [`bin/PUT-remove-threat.exe-HERE.txt`](bin/PUT-remove-threat.exe-HERE.txt).
@@ -46,6 +46,13 @@ powershell -ExecutionPolicy Bypass -File .\scripts\install-active-response.ps1
 ```
 
 Expect a line ending in: `[OK] remove-threat.exe installed (…bytes).`
+
+## Verify
+
+Confirm the PASS checks and run the EICAR end-to-end test:
+[INTEGRATION-GUIDE.md § 3](INTEGRATION-GUIDE.md#3-verification).
+If a check fails right after installing, wait 5–10 minutes and run it again
+(the manager pushes the Active Response config on its own cycle).
 
 Step-by-step context: [../guides/ENDPOINT-SETUP-GUIDE.md § 3](../guides/ENDPOINT-SETUP-GUIDE.md#3-virustotal-active-response).
 
